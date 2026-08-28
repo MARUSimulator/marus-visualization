@@ -14,7 +14,7 @@
 
 using UnityEngine;
 using Unity.Collections;
-using Marus.Sensors.Core;
+using Marus.Core;
 
 namespace Marus.Visualization
 {

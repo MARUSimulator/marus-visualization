@@ -1,0 +1,16 @@
+{
+    "name": "Marus.Visualization",
+    "rootNamespace": "",
+    "references": [
+        "GUID:c47c588af94a289439184f626352a939"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

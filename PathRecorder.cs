@@ -15,8 +15,6 @@
 using UnityEngine;
 using System.IO;
 using Marus.Logger;
-using Marus.Quest;
-using UnityEngine.SceneManagement;
 
 namespace Marus.Visualization
 {
@@ -26,73 +24,60 @@ namespace Marus.Visualization
     /// </summary>
     public class PathRecorder : MonoBehaviour
     {
-        ///	<summary>
+        /// <summary>
         /// Position sample rate in Hz.
         /// </summary>
         public float SampleRateHz = 5;
 
+        [Tooltip("Prefix used for the saved recording files.")]
+        public string FilePrefix = "PathRecording";
+
         private bool _enabled = true;
 
-        ///	<summary>
+        /// <summary>
         /// Minimum distance in meters between points to be recorded.
         /// </summary>
         private float MinimumDistanceDelta = 0.1f;
         private float _timer = 0f;
-        private string _fileName;
         private Vector3 _lastPosition;
         private GameObjectLogger<Vector3> logger;
         private string topic;
         private string savePath;
-        private QuestControl questControl;
 
         void Start()
         {
-            questControl = GameObject.Find("Quest").GetComponent<QuestControl>();
             savePath = Path.Combine(Application.dataPath, "PathRecordings");
-            Scene scene = SceneManager.GetActiveScene();
             RefreshTopic();
             logger = DataLogger.Instance.GetLogger<Vector3>(topic);
         }
 
         private void RefreshTopic()
         {
-            int index;
-            string prefix;
-            (prefix, index) = GetPathNumber();
-            topic = $"{prefix}-{index}-";
+            int index = GetNextFileIndex();
+            topic = $"{FilePrefix}-{index}-";
         }
 
-        private (string, int) GetPathNumber()
+        private int GetNextFileIndex()
         {
-            string [] fileEntries = System.IO.Directory.GetFiles(savePath);
-            Scene scene = SceneManager.GetActiveScene();
-            string prefix;
-            if (scene.name == "BTS")
+            // Ensure directory exists to prevent GetFiles from throwing an exception
+            if (!Directory.Exists(savePath))
             {
-                prefix = "Classic";
+                Directory.CreateDirectory(savePath);
             }
-            else if (scene.name == "BTS_Dinis")
-            {
-                prefix = "Guided";
-            }
-            else
-            {
-                prefix = "PathRecording";
-            }
+
+            string[] fileEntries = Directory.GetFiles(savePath);
             int index = 0;
+
             foreach(string fileName in fileEntries)
             {
-                var f = System.IO.Path.GetFileName(fileName);
-                if (f.EndsWith(".json") && f.StartsWith(prefix))
+                var f = Path.GetFileName(fileName);
+                if (f.EndsWith(".json") && f.StartsWith(FilePrefix))
                 {
-                    Debug.Log(f);
                     index++;
                 }
             }
 
-            index++;
-
-            return (prefix, index);
+            return index + 1;
         }
 
         void Update()
@@ -101,10 +86,7 @@ namespace Marus.Visualization
             {
                 return;
             }
-            if (questControl.QuestComplete)
-            {
-                Disable();
-            }
+
             var distanceDeltaCondition = Vector3.Distance(_lastPosition, transform.position) > MinimumDistanceDelta;
             if (_timer >= (1 / SampleRateHz) && distanceDeltaCondition)
             {
@@ -113,8 +95,6 @@ namespace Marus.Visualization
                 _timer = 0;
             }
             _timer += Time.deltaTime;
-
-
         }
 
         public bool IsEnabled()
@@ -129,14 +109,20 @@ namespace Marus.Visualization
 
         public void Disable()
         {
+            if (!_enabled) return; // Prevent double-saving if called multiple times
+
             RefreshTopic();
             _enabled = false;
-            OnDisable();
+            DataLoggerUtilities.SaveLogsForTopic(topic, savePath);
         }
 
         void OnDisable()
         {
-            DataLoggerUtilities.SaveLogsForTopic(topic, savePath);
+            if (_enabled) // Only save on disable if it hasn't been saved manually yet
+            {
+                DataLoggerUtilities.SaveLogsForTopic(topic, savePath);
+                _enabled = false;
+            }
         }
     }
 }
