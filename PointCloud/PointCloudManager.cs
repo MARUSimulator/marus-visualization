@@ -28,13 +28,12 @@ namespace Marus.Visualization
 
         string displaymentLayer = "Lidar";
         [Header("Debug")]
-        [SerializeField]int _nrOfParticles;
+        [SerializeField] int _nrOfParticles;
         static ComputeBufferDataExtractor<int> array;
 
         public void SetupPointCloud(int nrOfParticles)
         {
             _particleMesh = CreateMesh(nrOfParticles);
-
             _cloudObject = CreatePointCloudObject(displaymentLayer);
         }
 
@@ -43,7 +42,21 @@ namespace Marus.Visualization
             _nrOfParticles = nrOfParticles;
 
             int[] indices = new int[_nrOfParticles];
-            indices = ArrayAllocator(_nrOfParticles, computeParticle);
+            if (computeParticle != null)
+            {
+                try
+                {
+                    indices = ArrayAllocator(_nrOfParticles, computeParticle);
+                }
+                catch
+                {
+                    for (int i = 0; i < _nrOfParticles; i++) indices[i] = i;
+                }
+            }
+            else
+            {
+                for (int i = 0; i < _nrOfParticles; i++) indices[i] = i;
+            }
 
             Mesh mesh = new Mesh { vertices = new Vector3[_nrOfParticles] };
             mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt16;
@@ -73,7 +86,15 @@ namespace Marus.Visualization
             GameObject obj = new GameObject();
 
             this.displaymentLayer = displaymentLayer;
-            obj.layer = LayerMask.NameToLayer(this.displaymentLayer);
+            int layer = LayerMask.NameToLayer(this.displaymentLayer);
+            if (layer >= 0)
+            {
+                obj.layer = layer;
+            }
+            else
+            {
+                obj.layer = transform.parent != null ? transform.parent.gameObject.layer : 0;
+            }
 
             obj.name = "PointCloud";
 
@@ -88,13 +109,16 @@ namespace Marus.Visualization
             return obj;
         }
 
-        public void UpdatePointCloud(NativeArray<Vector3> points){
+        public void UpdatePointCloud(NativeArray<Vector3> points)
+        {
+            if (_particleMesh == null) return;
             _particleMesh.SetVertices(points);
             _particleMesh.RecalculateBounds();
         }
 
         public void UpdatePointCloud(Vector3[] points)
         {
+            if (_particleMesh == null) return;
             _particleMesh.SetVertices(points);
             _particleMesh.RecalculateBounds();
         }
@@ -106,13 +130,8 @@ namespace Marus.Visualization
             pointCloud.transform.rotation = Quaternion.identity;
             var pointCloudManager = pointCloud.AddComponent<PointCloudManager>();
 
-            pointCloudManager.particleMaterial = particleMaterial;
-            if (pointCloudManager.particleMaterial == null)
-                FindMaterial("PointMaterial");
-
+            pointCloudManager.particleMaterial = particleMaterial != null ? particleMaterial : FindMaterial("PointMaterial");
             pointCloudManager.computeParticle = computeShader;
-            if (pointCloudManager.computeParticle == null)
-                FindComputeShader("PointCloudCS");
 
             pointCloudManager.SetupPointCloud(numPoints);
             return pointCloudManager;
@@ -126,13 +145,8 @@ namespace Marus.Visualization
             pointCloud.transform.localRotation = Quaternion.identity;
             var pointCloudManager = pointCloud.AddComponent<PointCloudManager>();
 
-            pointCloudManager.particleMaterial = particleMaterial;
-            if (pointCloudManager.particleMaterial == null)
-                FindMaterial("PointMaterial");
-
+            pointCloudManager.particleMaterial = particleMaterial != null ? particleMaterial : FindMaterial("PointMaterial");
             pointCloudManager.computeParticle = computeShader;
-            if (pointCloudManager.computeParticle == null)
-                FindComputeShader("PointCloudCS");
 
             pointCloudManager.SetupPointCloud(numPoints);
             return pointCloudManager;
@@ -140,22 +154,29 @@ namespace Marus.Visualization
 
         public static ComputeShader FindComputeShader(string shaderName)
         {
-            ComputeShader cs = (ComputeShader)Resources.Load($"Shaders/{shaderName}");
-            if (cs != null)
-            {
-                return cs;
-            }
-            throw new UnityException($"Shader {shaderName} not found in the project");
+            ComputeShader cs = Resources.Load<ComputeShader>($"Shaders/{shaderName}");
+            if (cs == null) cs = Resources.Load<ComputeShader>(shaderName);
+            return cs;
         }
 
         public static Material FindMaterial(string materialName)
         {
-            Material cs = (Material)Resources.Load($"Material/{materialName}");
-            if (cs != null)
+            Material mat = Resources.Load<Material>($"Material/{materialName}");
+            if (mat == null) mat = Resources.Load<Material>(materialName);
+            if (mat != null) return mat;
+
+            Shader shader = Shader.Find("MARUS/PointCloud/Point");
+            if (shader == null) shader = Shader.Find("HDRP/Unlit");
+            if (shader == null) shader = Shader.Find("Unlit/Color");
+            if (shader == null) shader = Shader.Find("Universal Render Pipeline/Unlit");
+
+            if (shader != null)
             {
-                return cs;
+                Material fallback = new Material(shader);
+                fallback.color = Color.cyan;
+                return fallback;
             }
-            throw new UnityException($"Material {materialName} not found in the project");
+            return null;
         }
     }
 }

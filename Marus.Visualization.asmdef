@@ -2,7 +2,8 @@
     "name": "Marus.Visualization",
     "rootNamespace": "",
     "references": [
-        "GUID:c47c588af94a289439184f626352a939"
+        "GUID:c47c588af94a289439184f626352a939",
+        "GUID:940947b930419c14ab46c07ca87a825f"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
